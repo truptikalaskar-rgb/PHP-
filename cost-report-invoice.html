@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Cost Report to Support Claim — FY 24-25</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Calibri,"Segoe UI",Arial,sans-serif;color:#000;background:#f3f4f6;padding:26px 18px}
+  .sheet{max-width:1120px;margin:0 auto;background:#fff;border:1px solid #d9dce1;padding:22px 30px 30px;
+     box-shadow:0 1px 4px rgba(0,0,0,.08);font-size:12px;line-height:1.45}
+
+  /* centered title block */
+  .title{text-align:center}
+  .title .t1{font-weight:700;font-size:12.5px}
+  .title .t2{font-weight:700;font-size:12.5px}
+  .title .t3{font-weight:700;font-size:12px;color:#1f4fd8}
+
+  /* two info columns */
+  .cols{display:flex;justify-content:space-between;gap:40px;margin-top:26px}
+  .col{flex:0 0 auto}
+  .col.right{text-align:left}
+  .b{font-weight:700}
+  .red{color:#e11d1d;font-weight:700}
+  .pcline{display:flex;gap:70px;align-items:baseline}
+
+  /* editable + static field styling */
+  .fields{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;margin-top:34px}
+  .fgrp{display:flex;align-items:baseline;gap:10px}
+  .lbl{font-weight:700;white-space:nowrap}
+  input.edit{font-family:inherit;font-size:12px;font-weight:700;text-align:center;border:1px solid #d9b400;
+     background:#fff7bf;padding:3px 8px;min-width:78px;outline:none}
+  input.edit:focus{border-color:#b8940a;background:#fff59a}
+  input.blue{color:#1f4fd8}
+  /* invoice date — underline style like the image */
+  .datewrap{display:flex;justify-content:flex-end;margin-top:14px}
+  input.underline{font-family:inherit;font-size:12px;border:none;border-bottom:1px solid #000;background:#f0f0f0;
+     padding:2px 6px;min-width:170px;outline:none}
+  input.underline:focus{background:#fffbe6}
+
+  @media print{body{background:#fff;padding:0}.sheet{border:none;box-shadow:none}}
+</style>
+</head>
+<body>
+  <div class="sheet">
+
+    <!-- static centered title -->
+    <div class="title">
+      <div class="t1">COUNTY OF SAN DIEGO - PROBATION DEPARTMENT</div>
+      <div class="t2">Cost Report to Support Claim: Fiscal Year 24-25</div>
+      <div class="t3">July 1, 2024 through June 30, 2025</div>
+    </div>
+
+    <!-- static vendor + county blocks -->
+    <div class="cols">
+      <div class="col left">
+        <div>POMS71734</div>
+        <div class="b">Hope Psychotherapy Inc</div>
+        <div>1245 B Street</div>
+        <div>Hayward, CA 94541</div>
+        <div class="pcline"><span>PC 290 Sex Offender Assessments</span><span class="red">YOUTH/ADULT</span></div>
+      </div>
+      <div class="col right">
+        <div>County of San Diego Probation Department</div>
+        <div>Attn: Becky Akello&nbsp;&nbsp;becky.akello@sdcounty.ca.gov</div>
+        <div>5644 Balboa Ave., Suite 500</div>
+        <div>San Diego, CA 92123</div>
+        <div>(858) 514-3127</div>
+      </div>
+    </div>
+
+    <!-- editable fields (yellow highlighted in the image) -->
+    <div class="fields">
+      <div class="fgrp">
+        <span class="lbl">Budget Modification This Period?</span>
+        <input class="edit" value="No" />
+      </div>
+      <div class="fgrp">
+        <span class="lbl">Claim Period:</span>
+        <input class="edit" value="Jan-25" />
+      </div>
+      <div class="fgrp">
+        <span class="lbl">Invoice #:</span>
+        <input class="edit blue" value="571734-2425-X" style="min-width:120px" />
+      </div>
+    </div>
+
+    <!-- editable invoice date (blank underline in the image) -->
+    <div class="datewrap">
+      <div class="fgrp">
+        <span class="lbl">Invoice Date:</span>
+        <input class="underline" value="" />
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

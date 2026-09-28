@@ -1,0 +1,17 @@
+# Claude Code local state
+.claude/settings.local.json
+.claude/data/
+
+# Rune local metrics
+.rune/metrics/
+
+# OS / editor
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Node
+node_modules/
+
+# Build artifacts
+*.log

@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\LNV-310\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--PHP\\\\36c07139-dc34-47aa-a5c8-35a6b2415ecb\\\\scratchpad\\\\gen-icons.ps1\")"
+    ]
+  }
+}
