@@ -192,6 +192,11 @@
   .sechd-left:active .sechd-t{color:var(--primary)}
   .sechd-acts{display:flex;align-items:center;gap:5px;flex:0 0 auto}
   .secbd{padding:10px 11px;animation:fade .16s ease}
+  .secbd>.card:last-child{margin-bottom:0}
+  /* Labs screen lists breathe more than the dense visit-note sections do */
+  .labsec .secbd>.card,.labsec>.card{margin-bottom:12px}
+  .labsec .secbd>.card:last-child,.labsec>.card:last-child{margin-bottom:0}
+  .labsec .secbd{padding:12px 11px}
   /* reusable dropdown option list, opened in the app's existing bottom sheet */
   .optrow{display:flex;align-items:center;justify-content:space-between;padding:15px 18px;font-size:15.5px;font-weight:600;color:var(--text);border-bottom:1px solid var(--line);cursor:pointer}
   .optrow:last-child{border-bottom:none}
@@ -306,6 +311,15 @@
      border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px}
   .tabs .t.on{background:var(--primary);color:#fff}
   .tabs.pill .t.on{background:var(--blue-bg);color:var(--primary)}
+  .tabs .t .tcount{min-width:17px;padding:0 5px;text-align:center;border-radius:7px;background:var(--line);color:var(--muted);
+     font-size:10px;font-weight:700;line-height:16px}
+  .tabs .t.on .tcount{background:rgba(255,255,255,.26);color:#fff}
+  .tabs.pill .t.on .tcount{background:rgba(21,131,197,.15);color:var(--primary)}
+  /* more tabs than fit on one line: grow to fill when there is room, scroll sideways when there is not */
+  .tabs.scroll{overflow-x:auto;scroll-behavior:smooth;-webkit-overflow-scrolling:touch;
+     scroll-snap-type:x proximity;scrollbar-width:none;-ms-overflow-style:none}
+  .tabs.scroll::-webkit-scrollbar{display:none}
+  .tabs.scroll .t{flex:1 0 auto;min-width:74px;white-space:nowrap;padding:8px 11px;scroll-snap-align:center}
 
   .listitem{display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid var(--line)}
   .listitem:last-child{border-bottom:none}
@@ -1153,7 +1167,7 @@ function povSwitch(){
    return `<span class="pov ${on?'on':''} ${self?'self':''}" data-act="setpov" data-p="${id}" title="${POV[id].name}${self?' (You)':''}">${POV[id].ini}${self?`<i class="selfdot">YOU</i>`:''}${n?`<i class="pvb">${n}</i>`:''}</span>`;};
  return `<span class="povswitch">${ids.map(chip).join('')}</span>`;
 }
-const tabs=(key,opts,pill)=>`<div class="tabs ${pill?'pill':''}">`+opts.map(o=>
+const tabs=(key,opts,pill,scroll)=>`<div class="tabs ${pill?'pill':''} ${(scroll===undefined?opts.length>3:scroll)?'scroll':''}">`+opts.map(o=>
    `<div class="t ${tab(key,opts[0].v)===o.v?'on':''}" data-act="settab" data-key="${key}" data-v="${o.v}">${o.label}${o.badge?` <span class="badge b-danger" style="padding:1px 6px">${o.badge}</span>`:''}</div>`).join('')+`</div>`;
 
 /* ============================ SCREENS ============================ */
@@ -1487,7 +1501,10 @@ const ORDERS=[
  {id:'o5',group:'imaging',type:'Imaging',name:'MRI Brain',by:'Dr. Jane Doe',date:'10 Apr 2026',priority:'Routine',notes:'',status:'Resulted',cls:'b-green',report:'MRI Brain'},
  {id:'o6',group:'imaging',type:'Imaging',name:'Lumbar Spine MRI',by:'Dr. Jane Doe',date:'30 May 2026',priority:'STAT',notes:'Radiculopathy',status:'Awaiting auth',cls:'b-urgent',report:null},
 ];
-const ordersIn=g=>ORDERS.filter(o=>o.group===g);
+/* "03 Jun 2026 • 1 flag" -> sortable time, so labs and imaging interleave by date once merged */
+const MONS={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+const rdate=s=>{const m=/(\d{1,2})\s+([A-Z][a-z]{2})\s+(\d{4})/.exec(s||'');
+ return m?new Date(+m[3],MONS[m[2]],+m[1]).getTime():0;};
 const LABDOCS={
  labs:{results:[['Lipid Panel','03 Jun 2026 • 1 flag',false],['CBC with Differential','01 Jun 2026 • Normal',false],
            ['HbA1c Report','20 May 2026 • Normal',false],['Comprehensive Metabolic Panel','18 May 2026 • Normal',false]]},
@@ -1507,27 +1524,94 @@ function docRow([n,sub,flag]){
    <div style="width:38px;height:38px;border-radius:10px;background:${flag==='img'?'var(--blue-bg);color:var(--primary)':'var(--danger-bg);color:var(--danger)'};display:flex;align-items:center;justify-content:center">${flag==='img'?IC.img:IC.pdf}</div>
    <div class="grow"><div class="md b">${n}</div><div class="xs muted">${sub.replace('1 flag','<span style="color:var(--danger)">1 flag</span>')}</div></div>
    <span class="row" style="gap:6px;color:var(--muted-2)"><span class="badge b-gray">PDF</span>${IC.chev}</span></div>`;}
-/* a placed order — no document yet, so it carries a status instead of opening a viewer */
-function orderRow(icon,o){
+/* a placed order — no document yet, so it carries a status instead of opening a viewer.
+   Labs and imaging share one list now, so the row states its own type. */
+function orderRow(o){
  return `<div class="card row tap" style="gap:11px" data-act="openOrder" data-id="${o.id}">
-   <div style="width:38px;height:38px;border-radius:10px;background:var(--blue-bg);color:var(--primary);display:flex;align-items:center;justify-content:center">${icon}</div>
-   <div class="grow"><div class="md b">${esc(o.name)}</div><div class="xs muted">Ordered ${o.date} • ${esc(o.by)}${o.priority==='STAT'?' • <span style="color:var(--danger);font-weight:700">STAT</span>':''}</div></div>
+   <div style="width:38px;height:38px;border-radius:10px;background:var(--blue-bg);color:var(--primary);display:flex;align-items:center;justify-content:center">${o.group==='imaging'?IC.img:IC.lab}</div>
+   <div class="grow"><div class="md b">${esc(o.name)}</div><div class="xs muted">${esc(o.type)} • ${o.date} • ${esc(o.by)}${o.priority==='STAT'?' • <span style="color:var(--danger);font-weight:700">STAT</span>':''}</div></div>
    <span class="row" style="gap:6px"><span class="badge ${o.cls}">${o.status}</span>${IC.chev}</span></div>`;}
-function labGroup(title,n,rows){
- return `<div class="between" style="margin:14px 2px 8px"><span class="sechead" style="margin:0">${title}</span><span class="badge b-gray">${n}</span></div>${rows}`;}
-function labsBody(){const t=tab('labtab','labs');const d=LABDOCS[t];
+/* count that rides inside a tab label, so Orders / Results show their volume without a second header */
+const tcount=n=>`<span class="tcount">${n}</span>`;
+/* three tabs. Lab and Imaging each split into collapsible Orders + Results panels;
+   Report is the clinical-document shelf. A plain (non-imaging) referral belongs to neither
+   modality, so it surfaces under Report and only when one exists. */
+const LABTABS=['lab','imaging','report'];
+function labsBody(){let t=tab('labtab','lab'); if(!LABTABS.includes(t))t=state.ui.labtab='lab';
  const empty=m=>`<div class="card"><span class="xs muted">${m}</span></div>`;
- let body;
- if(t==='reports'){body=d.length?d.map(docRow).join(''):empty('No reports on file.');}
- else{const isImg=t==='imaging';const icon=isImg?IC.img:IC.lab;const word=isImg?'Imaging':'Lab';
-  const ords=ordersIn(t);
-  body=labGroup(word+' Orders',ords.length,ords.length?ords.map(o=>orderRow(icon,o)).join(''):empty('No open '+word.toLowerCase()+' orders.'))
-      +labGroup(word+' Results',d.results.length,d.results.length?d.results.map(docRow).join(''):empty('No '+word.toLowerCase()+' results yet.'));}
- return `<div class="between" style="margin-bottom:10px"><span class="sechead" style="margin:0">Labs, Imaging & Reports</span><span class="badge b-gray">${IC.lockview} View only</span></div>
-  ${tabs('labtab',[{v:'labs',label:'Labs'},{v:'imaging',label:'Imaging'},{v:'reports',label:'Reports'}])}
-  ${body}
+ const byDate=a=>[...a].sort((x,y)=>rdate(y[1])-rdate(x[1]));
+ const ordersIn=g=>ORDERS.filter(o=>o.group===g).sort((a,b)=>rdate(b.date)-rdate(a.date));
+ const labOrd=ordersIn('labs'), imgOrd=ordersIn('imaging');
+ const labRes=byDate(LABDOCS.labs.results), imgRes=byDate(LABDOCS.imaging.results);
+ const reps=LABDOCS.reports;
+ const refs=ORDERS.filter(o=>o.group!=='labs'&&o.group!=='imaging');
+ const cnt=v=>`<span class="badge b-gray">${v}</span>`;
+ const ordList=(a,m)=>a.length?a.map(o=>orderRow(o)).join(''):empty(m);
+ const docList=(a,m)=>a.length?a.map(d=>docRow(d)).join(''):empty(m);
+ const body=
+   t==='lab'     ? sec('labAccOrd','Lab Orders',ordList(labOrd,'No lab orders.'),{open:true,actions:cnt(labOrd.length)})
+                 + sec('labAccRes','Lab Results',docList(labRes,'No lab results yet.'),{open:true,actions:cnt(labRes.length)})
+ : t==='imaging' ? sec('imgAccOrd','Imaging Orders',ordList(imgOrd,'No imaging orders.'),{open:true,actions:cnt(imgOrd.length)})
+                 + sec('imgAccRes','Imaging Results',docList(imgRes,'No imaging on file.'),{open:true,actions:cnt(imgRes.length)})
+ :                 docList(reps,'No reports on file.')
+                 + (refs.length?sec('repAccRef','Referrals',ordList(refs,''),{open:true,mt:true,actions:cnt(refs.length)}):'');
+ return `<div class="sechead" style="margin:0 2px 10px">Labs, Imaging & Reports</div>
+  ${tabs('labtab',[{v:'lab',label:'Lab'+tcount(labOrd.length+labRes.length)},{v:'imaging',label:'Imaging'+tcount(imgOrd.length+imgRes.length)},{v:'report',label:'Report'+tcount(reps.length)}])}
+  <div class="labsec">${body}</div>
   <div class="banner info" style="margin-top:12px"><span class="ic">${IC.info}</span><div><p>Documents open in the secure in-app viewer (one-time S3 link). View-only — no download to device.</p></div></div>`;}
 /* one placed order — its details, status, and the report once it has resulted */
+/* Add Lab Order — same fields as the web modal, laid out as a full page on mobile */
+S.addLabOrder=()=>`${sb()}${bar({left:`<span class="ic tap" data-act="back">${IC.close}</span>`,title:'Add Lab Order',acts:`<span class="xs divlink tap" data-act="toast" data-msg="Opening order sets…">View order sets</span>`})}
+ <div class="body" style="background:#fff">
+  ${fld('Location',false,fdd('loLocation'))}
+  ${fld('Lab',true,fdd('loLab'))}
+  ${fld('Payer',false,fdd('loPayer'))}
+  ${fld('Tests',true,fdd('loTests'))}
+  ${fld('ICD Codes',true,fdd('loIcd'))}
+  <button class="btn btn-line sm" style="width:100%;justify-content:center;margin-bottom:12px;color:var(--muted-2)" data-act="toast" data-msg="Saved as order set">Save as Order Set</button>
+  ${fld('Patient Instructions',false,fta('loPtIns','Enter Patient Instructions'))}
+  ${fld('Note',false,fta('loNote','Enter Lab Instructions'))}
+  ${fld('Order Date',false,fdate('loDate','09/29/2026'))}
+  ${fchk('loPoc','POC Hold')}
+  <div class="row" style="gap:8px;margin-top:4px">
+   <button class="btn btn-line" data-act="saveLabOrder" data-mode="Draft saved">Save as Draft</button>
+   <button class="btn btn-line" data-act="saveLabOrder" data-mode="Sent to print">Save and Print</button>
+  </div>
+  <button class="btn btn-primary" style="margin-top:8px" data-act="saveLabOrder" data-mode="">${IC.check} Save</button>
+ </div>`;
+/* Add Referral — the web modal used for imaging orders (Referral Type = Imaging) */
+S.addReferral=()=>{const p=P();const isImg=(state.ui.rfType||'')==='Imaging';
+ return `${sb()}${bar({left:`<span class="ic tap" data-act="back">${IC.close}</span>`,title:'Add Referral'})}
+ <div class="body" style="background:#fff">
+  <div class="card row" style="gap:10px;background:#F8F9FB">
+   <span class="avatar sm">${p.ini}</span>
+   <div class="grow"><div class="md b">${esc(p.name)}</div>
+    <div class="xs muted mt4">${esc(p.dob||'16 Aug 2000')} • ${esc(p.age||'26 yrs')} • ${esc(p.sex||'Female')}</div>
+    <div class="xs muted mt4">Referring: Alexander Whitmore</div></div>
+  </div>
+  ${fld('Select Provider',false,fdd('rfProvider'))}
+  ${fld('Referral Type',true,fdd('rfType'))}
+  ${fld('Order Date',false,fdate('rfDate','09/29/2026'))}
+  <div class="field">
+   <div class="between" style="margin-bottom:4px"><label style="margin:0">To (${isImg?'Imaging Center':'Provider / Facility'})</label>
+    <span class="xs divlink tap" data-act="toast" data-msg="Add ${isImg?'imaging center':'facility'}">+ Add ${isImg?'Imaging Center':'Facility'}</span></div>
+   ${fdd('rfCenter')}
+  </div>
+  ${fld('Reason for Referral',true,fta('rfReason','Enter Reason for Referral'))}
+  ${fld('Diagnosis Codes',true,fdd('rfDx'))}
+  ${fchk('rfIns','Attach Insurance Details',true)}
+  ${fchk('rfSig','Attach Provider Signature')}
+  <div class="field"><label>Chart Items</label>
+   <button class="btn btn-line sm" style="justify-content:center;margin-bottom:8px" data-act="toast" data-msg="Select chart items">${IC.add} Add Chart Items</button>
+   <div class="row" style="flex-wrap:wrap;gap:6px"><span class="badge b-blue">Patient Demographics &amp; Clinical Profile</span></div>
+  </div>
+  ${fchk('rfStat','Mark as STAT')}
+  <div class="row" style="gap:8px;margin-top:4px">
+   <button class="btn btn-line" data-act="back">Cancel</button>
+   <button class="btn btn-line" data-act="saveReferral" data-mode="Sent to print">Print And Save</button>
+  </div>
+  <button class="btn btn-primary" style="margin-top:8px" data-act="saveReferral" data-mode="">${IC.check} Save</button>
+ </div>`;};
 S.orderDetail=()=>{const o=state.activeOrder||ORDERS[0];
  const row=(k,v)=>`<div class="listitem"><span class="grow xs muted">${k}</span><span class="md sb-w">${esc(v)}</span></div>`;
  return `${sb()}${bar({back:true,title:o.type,sub:o.name})}
@@ -1545,26 +1629,110 @@ S.orderDetail=()=>{const o=state.activeOrder||ORDERS[0];
    ? `<button class="btn btn-primary" data-act="viewPdf" data-name="${esc(o.report)}">${IC.pdf} View Report</button>`
    : `<div class="banner info"><span class="ic">${IC.info}</span><div><p>No report yet — this order is <b>${o.status.toLowerCase()}</b>. The result will appear here once it is back.</p></div></div>`}
  </div>`;};
-S.pdfView=()=>`${sb()}${bar({back:true,title:'Document Viewer',sub:state.pdfName})}
+/* the actual contents of each document, keyed by the name the row passes to the viewer.
+   `rows` = an analyte table (name, value, reference, unit, flag); `secs` = a narrative report. */
+const REPORT_DOCS={
+ 'Lipid Panel':{kind:'lab',date:'03 Jun 2026',src:'Quest Diagnostics',by:'Dr. Jane Doe, MD',pages:1,
+  rows:[['Total Cholesterol','216','&lt;240','mg/dL',''],['LDL Cholesterol','142','&lt;100','mg/dL','high'],
+        ['HDL Cholesterol','48','&gt;40','mg/dL',''],['Triglycerides','128','&lt;150','mg/dL',''],
+        ['Chol / HDL Ratio','4.5','&lt;5.0','','']],
+  note:'Interpretation: LDL 142 mg/dL is above the &lt;100 mg/dL target; total cholesterol is borderline. Recommend dietary counselling and a statin discussion, with repeat lipids in 3 months. Electronically signed by Dr. Jane Doe.'},
+ 'CBC with Differential':{kind:'lab',date:'01 Jun 2026',src:'Quest Diagnostics',by:'Dr. Jane Doe, MD',pages:1,
+  rows:[['WBC','6.2','4.0–11.0','x10⁹/L',''],['RBC','4.62','4.20–5.40','x10¹²/L',''],
+        ['Hemoglobin','13.8','12.0–16.0','g/dL',''],['Hematocrit','41.2','36–46','%',''],
+        ['MCV','89','80–100','fL',''],['Platelets','245','150–400','x10⁹/L',''],
+        ['Neutrophils','58','40–70','%',''],['Lymphocytes','32','20–45','%','']],
+  note:'Interpretation: All indices within reference range. No evidence of anaemia, active infection or thrombocytopenia. Electronically signed by Dr. Jane Doe.'},
+ 'HbA1c Report':{kind:'lab',date:'20 May 2026',src:'Quest Diagnostics',by:'Dr. Jane Doe, MD',pages:1,
+  rows:[['Hemoglobin A1c','5.4','&lt;5.7','%',''],['Est. Average Glucose','108','—','mg/dL','']],
+  note:'Interpretation: HbA1c 5.4% is in the normoglycaemic range — no evidence of prediabetes. Recheck annually. Electronically signed by Dr. Jane Doe.'},
+ 'Comprehensive Metabolic Panel':{kind:'lab',date:'18 May 2026',src:'Quest Diagnostics',by:'Dr. Jane Doe, MD',pages:1,
+  rows:[['Sodium','139','135–145','mmol/L',''],['Potassium','4.1','3.5–5.1','mmol/L',''],
+        ['Chloride','103','98–107','mmol/L',''],['CO₂','26','22–29','mmol/L',''],
+        ['Glucose','92','70–99','mg/dL',''],['BUN','14','7–20','mg/dL',''],
+        ['Creatinine','0.9','0.6–1.1','mg/dL',''],['eGFR','92','&gt;60','mL/min/1.73m²',''],
+        ['Calcium','9.4','8.6–10.2','mg/dL',''],['Albumin','4.2','3.5–5.0','g/dL',''],
+        ['AST','22','10–40','U/L',''],['ALT','19','7–56','U/L',''],
+        ['Alkaline Phosphatase','68','44–147','U/L',''],['Total Bilirubin','0.6','0.1–1.2','mg/dL','']],
+  note:'Interpretation: Renal function, hepatic enzymes and electrolytes all within normal limits. Electronically signed by Dr. Jane Doe.'},
+ 'Chest X-Ray':{kind:'img',date:'28 May 2026',src:'Willow Creek Imaging',by:'Dr. R. Alvarez, MD — Radiology',pages:1,
+  secs:[['Exam','Chest, PA and lateral (2 view).'],
+        ['Indication','Persistent cough for three weeks.'],
+        ['Comparison','Chest radiograph dated 14 Nov 2025.'],
+        ['Findings','Lungs are clear and well expanded. No focal consolidation, pleural effusion or pneumothorax. The cardiomediastinal silhouette is normal in size and contour. Visualised bony thorax is intact with no acute osseous abnormality.'],
+        ['Impression','No acute cardiopulmonary process. Unchanged from the prior study.']],
+  note:'Electronically signed by Dr. R. Alvarez, MD — Radiology, 28 May 2026.'},
+ 'MRI Brain':{kind:'img',date:'12 Apr 2026',src:'Willow Creek Imaging',by:'Dr. M. Okafor, MD — Neuroradiology',pages:1,
+  secs:[['Exam','MRI brain, without and with contrast.'],
+        ['Indication','Recurrent headache — rule out structural lesion.'],
+        ['Technique','Multiplanar, multisequence imaging of the brain at 1.5T, before and after 10 mL of intravenous gadobutrol.'],
+        ['Findings','No acute infarct, haemorrhage or mass effect. Ventricles and sulci are appropriate for age. A few scattered T2/FLAIR hyperintensities are present in the subcortical white matter, non-specific in appearance. No abnormal enhancement. Major intracranial flow voids are preserved.'],
+        ['Impression','No acute intracranial abnormality. Minimal non-specific white matter change, most likely microvascular.']],
+  note:'Electronically signed by Dr. M. Okafor, MD — Neuroradiology, 12 Apr 2026.'},
+ 'Abdominal Ultrasound':{kind:'img',date:'02 Mar 2026',src:'Willow Creek Imaging',by:'Dr. S. Lindqvist, MD — Radiology',pages:1,
+  secs:[['Exam','Complete abdominal ultrasound.'],
+        ['Indication','Intermittent right upper quadrant discomfort.'],
+        ['Findings','Liver is normal in size and echotexture with no focal lesion. The gallbladder contains a single 6 mm mobile stone, without wall thickening or pericholecystic fluid; negative sonographic Murphy\'s sign. Common bile duct measures 4 mm. Pancreas, spleen and both kidneys are unremarkable. No free fluid.'],
+        ['Impression','Single 6 mm cholelithiasis without evidence of acute cholecystitis. Correlate clinically.']],
+  note:'Electronically signed by Dr. S. Lindqvist, MD — Radiology, 02 Mar 2026.'},
+ 'Discharge Summary':{kind:'doc',date:'30 Mar 2026',src:'Willow Creek Medical Center',by:'Dr. P. Whitfield, MD — Hospitalist',pages:2,
+  secs:[['Admission / Discharge','Admitted 28 Mar 2026 — discharged 30 Mar 2026 (2 days, observation).'],
+        ['Admitting Diagnosis','Atypical chest pain.'],
+        ['Discharge Diagnosis','Non-cardiac chest pain, likely gastro-oesophageal reflux.'],
+        ['Hospital Course','Admitted for observation with intermittent substernal chest discomfort. Serial troponins were negative at 0, 3 and 6 hours. ECG showed normal sinus rhythm with no ischaemic changes. Stress echocardiogram on day 2 was negative for inducible ischaemia. Symptoms settled on a proton pump inhibitor. The patient remained haemodynamically stable throughout.'],
+        ['Discharge Medications','Pantoprazole 40 mg once daily. Continue metoprolol 50 mg once daily.'],
+        ['Follow-up','Primary care in 1–2 weeks. Cardiology as needed. Return for any recurrent or exertional chest pain.']],
+  note:'Electronically signed by Dr. P. Whitfield, MD — Hospitalist, 30 Mar 2026.'},
+ 'Cardiology Consult':{kind:'doc',date:'15 Mar 2026',src:'Willow Creek Cardiology',by:'Dr. A. Bhandari, MD — Cardiology',pages:1,
+  secs:[['Reason for Consult','Palpitations, with a family history of premature coronary artery disease.'],
+        ['History','Intermittent palpitations over three months, lasting seconds to minutes, with no syncope, exertional chest pain or dyspnoea. Father had a myocardial infarction at 58.'],
+        ['Examination','BP 128/78, HR 72 and regular. Normal S1/S2, no murmur, rub or gallop. Lungs clear. No peripheral oedema.'],
+        ['Investigations','ECG: normal sinus rhythm, no conduction abnormality. 14-day ambulatory monitor: rare isolated PACs, no sustained arrhythmia. Echocardiogram: normal LV size and function, EF 60%.'],
+        ['Assessment','Benign palpitations with no evidence of structural or arrhythmic heart disease. Intermediate 10-year ASCVD risk given family history.'],
+        ['Plan','Reassurance. Optimise lipids — recheck a fasting lipid panel in 3 months and consider a moderate-intensity statin if LDL remains above target. No further rhythm monitoring required.']],
+  note:'Electronically signed by Dr. A. Bhandari, MD — Cardiology, 15 Mar 2026.'},
+ 'Annual Physical Report':{kind:'doc',date:'10 Jan 2026',src:'Willow Creek Medical',by:'Dr. Jane Doe, MD — Family Medicine',pages:1,
+  secs:[['Vitals','BP 126/80, HR 70, temp 36.8 °C, RR 14, SpO₂ 99% on room air, BMI 26.4.'],
+        ['Review of Systems','Negative apart from occasional tension headache. No fever, weight change, chest pain or dyspnoea.'],
+        ['Examination','Well appearing, no acute distress. HEENT, cardiovascular, respiratory, abdominal, skin and neurological examinations all unremarkable.'],
+        ['Screening','Mammogram up to date (Sep 2025). Cervical screening up to date. Colorectal screening due at 50. Influenza vaccine given today.'],
+        ['Assessment &amp; Plan','Healthy 48-year-old adult. Continue current medications. Fasting lipids and HbA1c ordered. Lifestyle counselling on diet and activity provided. Return in 1 year or sooner if symptomatic.']],
+  note:'Electronically signed by Dr. Jane Doe, MD — Family Medicine, 10 Jan 2026.'},
+};
+S.pdfView=()=>{const n=state.pdfName||'';const r=REPORT_DOCS[n];
+ const lrow=([k,v,ref,u,f],i)=>`<div class="between" style="padding:9px 0;border-top:${i?'1px solid var(--line)':'none'};gap:10px;align-items:flex-start">
+   <span class="grow"><div class="md">${k}</div><div class="xs muted mt4">Ref ${ref}${ref!=='—'&&u?' '+u:''}</div></span>
+   <span style="text-align:right;flex:0 0 auto">
+    <div class="md b"${f?' style="color:var(--danger)"':''}>${v}${u?` <span class="xs muted" style="font-weight:500">${u}</span>`:''}</div>
+    ${f?`<div class="mt4"><span class="badge b-danger">${f==='low'?'LOW':'HIGH'}</span></div>`:''}</span></div>`;
+ const srow=([h,t],i)=>`<div style="margin-top:${i?14:0}px"><div class="sechead" style="margin:0 0 5px">${h}</div><div class="md" style="line-height:1.62">${t}</div></div>`;
+ const flags=r&&r.rows?r.rows.filter(x=>x[4]).length:0;
+ const page1=r
+  ? `<div class="between"><div class="logo sm"></div><span class="xs muted">Page 1 of ${r.pages}</span></div>
+     <div class="b mt8" style="font-size:15px">${esc(n)}</div>
+     <div class="xs muted mt4">Primary Health Partners • ${esc(r.src)} • ${P().name}</div>
+     <div class="xs muted mt4">${r.kind==='lab'?'Collected':'Performed'} ${r.date} • ${esc(r.by)}</div>
+     ${flags?`<div class="badge b-danger" style="margin-top:8px">${flags} value${flags===1?'':'s'} outside reference range</div>`:''}
+     <div class="hr"></div>
+     ${r.rows?`<div class="sechead" style="margin:0 0 4px">Results</div>${r.rows.map(lrow).join('')}`:r.secs.map(srow).join('')}
+     <div class="hr"></div>
+     <div class="xs muted" style="line-height:1.6">${r.note}</div>`
+  : `<div class="between"><div class="logo sm"></div><span class="xs muted">Page 1 of 1</span></div>
+     <div class="b mt8" style="font-size:15px">${esc(n)}</div>
+     <div class="xs muted mt4">Primary Health Partners • Willow Creek Medical • ${P().name}</div>
+     <div class="hr"></div>
+     <div class="md muted" style="text-align:center;padding:20px 0">This document has no preview on file.</div>`;
+ return `${sb()}${bar({back:true,title:'Document Viewer',sub:n})}
  <div class="body" style="background:#6b7280">
   <div class="banner info" style="margin-bottom:10px"><span class="ic">${IC.lockview}</span><div><p>Secure view via one-time S3 link — download disabled on device.</p></div></div>
-  <div style="background:#fff;border-radius:8px;padding:18px 16px;box-shadow:var(--shadow)">
-   <div class="between"><div class="logo sm"></div><span class="xs muted">Page 1 of 2</span></div>
-   <div class="b mt8" style="font-size:15px">${state.pdfName}</div>
-   <div class="xs muted mt4">Primary Health Partners • Willow Creek Medical • ${P().name}</div>
-   <div class="hr"></div>
-   <div class="sechead" style="margin:0 0 8px">Results</div>
-   ${[['WBC','6.2','4.0–11.0','x10⁹/L'],['Hemoglobin','13.8','12–16','g/dL'],['Platelets','245','150–400','x10⁹/L'],['Cholesterol','214','&lt;200','mg/dL'],['LDL','142','&lt;100','mg/dL'],['HDL','48','&gt;40','mg/dL']].map(([k,v,r,u],i)=>`<div class="between" style="padding:8px 0;border-top:${i?'1px solid var(--line)':'none'}"><span class="md">${k}</span><span class="md b">${v} <span class="xs muted">${u}</span></span></div>`).join('')}
-   <div class="hr"></div>
-   <div class="xs muted" style="line-height:1.6">Interpretation: LDL and total cholesterol above target range. Recommend dietary counseling and recheck in 3 months. Electronically signed by Dr. Jane Doe.</div>
-  </div>
-  <div style="height:10px"></div>
-  <div style="background:#fff;border-radius:8px;padding:40px 16px;box-shadow:var(--shadow);text-align:center;color:var(--muted-2)" class="sm">Page 2 — end of report</div>
+  <div style="background:#fff;border-radius:8px;padding:18px 16px;box-shadow:var(--shadow)">${page1}</div>
+  ${r&&r.pages>1?`<div style="height:10px"></div>
+  <div style="background:#fff;border-radius:8px;padding:40px 16px;box-shadow:var(--shadow);text-align:center;color:var(--muted-2)" class="sm">Page 2 — end of report</div>`:''}
  </div>
  <div style="flex:0 0 auto;padding:10px 13px;background:#fff;border-top:1px solid var(--line);display:flex;gap:8px">
   <button class="btn btn-line" data-act="annotateReport">${IC.edit} Annotate</button>
   <button class="btn btn-primary" data-act="shareReport">${IC.send} Share with patient</button>
- </div>${nav('patient')}`;
+ </div>${nav('patient')}`;};
 
 /* ---- patient appointments (Upcoming / Past — mirrors the web portal's Patient Charting > Appointments tab) ---- */
 function patientApptIsPast(a){return a.status==='Checked Out'||a.status==='Cancelled'||a.day<state.schedDay;}
@@ -2165,6 +2333,8 @@ function addSheetHTML(){const a=state.addForm;const f=ADD_FORMS[a.form];const se
    </div>
   </div>`;}
 function renderAddSheet(){const s=document.getElementById('sheet');if(s)s.innerHTML=addSheetHTML();}
+/* textareas on the order forms live in the DOM until save */
+function readFormAreas(ids){ids.forEach(id=>{const e=document.getElementById(id);if(e)state.ui[id]=e.value;});}
 function readAddForm(){const a=state.addForm;if(!a)return;ADD_FORMS[a.form].fields.forEach(fd=>{const e=document.getElementById('addf_'+fd.k);if(e)a.vals[fd.k]=e.value;});}
 function openAddSheet(form,dest){if(!ADD_FORMS[form])return;
  state.addForm={form,dest,vals:{},err:''};state.sheetOpen=true;renderAddSheet();
@@ -2174,6 +2344,15 @@ function openLocSheet(){state.sheetOpen=true;const s=document.getElementById('sh
 const DROPDOWN_DEFS={
  sharedTemplate:{title:'Templates',options:['Shared Templates','My Templates']},
  selectTemplate:{title:'Select Template',options:['Select Template','Standard SOAP','Pediatric SOAP','Behavioral Health SOAP']},
+ loLocation:{title:'Select Lab Center',options:['Search and Select Lab Center','Willow Creek Draw Station','Riverside Labs — Main','Northside Collection Center']},
+ loLab:{title:'Select Lab',options:['Select Lab','Quest Diagnostics','LabCorp','Hospital Core Lab']},
+ loPayer:{title:'Payer',options:['Patient','Insurance — Primary','Insurance — Secondary','Self-pay']},
+ loTests:{title:'Select Tests',options:['Search and Select Tests','Comprehensive Metabolic Panel','Lipid Panel','CBC with Differential','HbA1c','TSH with Reflex']},
+ loIcd:{title:'Select ICD Codes',options:['Search and Select ICD Codes','E11.9 — Type 2 Diabetes','I10 — Essential Hypertension','E78.5 — Hyperlipidemia','R51 — Headache']},
+ rfProvider:{title:'Select Provider',options:['Alexander Whitmore','Dr. Jane Doe','Dr. Marcus Reed']},
+ rfType:{title:'Referral Type',options:['Select Referral Type','Imaging','Specialist','Physical Therapy','Behavioral Health']},
+ rfCenter:{title:'Select Imaging Center',options:['Select Imaging Center','Willow Creek Imaging','Riverside Radiology','Northside MRI Center']},
+ rfDx:{title:'Select ICD Code',options:['Search and Select ICD Code','E11.9 — Type 2 Diabetes','I10 — Essential Hypertension','M54.5 — Low back pain','R51 — Headache']},
  peTemplate:{title:'Select PE Template',options:['Select PE Template','Comprehensive Exam','Focused Cardiac Exam','Focused Respiratory Exam','Well-Child Exam']},
 };
 function optionSheetHTML(title,options,key){const cur=state.ui[key];
@@ -2183,6 +2362,17 @@ function optionSheetHTML(title,options,key){const cur=state.ui[key];
    ${options.map(o=>`<div class="optrow tap" data-act="pickOption" data-key="${key}" data-v="${o}">${o}${cur===o?`<span style="color:var(--primary);display:flex">${IC.check}</span>`:''}</div>`).join('')}
   </div>`;}
 function openOptionSheet(key){const def=DROPDOWN_DEFS[key];if(!def)return;state.sheetOpen=true;const s=document.getElementById('sheet');if(s)s.innerHTML=optionSheetHTML(def.title,def.options,key);document.getElementById('sheet').classList.add('open');document.getElementById('sheetScrim').classList.add('open');}
+/* form-field helpers for the full-page order forms (web parity) */
+function fdd(key){const def=DROPDOWN_DEFS[key];const v=state.ui[key];const val=v||def.options[0];
+ return `<div class="inp between tap${v?'':' ph'}" data-act="openOptions" data-key="${key}"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(val)}</span>${IC.chev}</div>`;}
+function fld(label,req,body){return `<div class="field"><label>${label}${req?' <span style="color:var(--danger)">*</span>':''}</label>${body}</div>`;}
+function fta(id,ph){return `<textarea class="ta" id="${id}" placeholder="${ph}">${esc(state.ui[id]||'')}</textarea>`;}
+function fdate(key,def){const v=state.ui[key]===undefined?def:state.ui[key];
+ return `<div class="inp between"><span class="${v?'':'ph'}">${v||'Select date'}</span><span class="row" style="gap:10px">${v?`<span class="ic tap" data-act="clearDate" data-key="${key}" style="color:var(--muted-2)">${IC.close}</span>`:''}<span style="color:var(--muted)">${IC.cal}</span></span></div>`;}
+function fchk(key,label,dis){const on=!dis&&!!state.ui[key];
+ return `<div class="row${dis?'':' tap'}" style="gap:9px;margin:2px 0 11px;${dis?'opacity:.45':''}"${dis?'':` data-act="togChk" data-key="${key}"`}>
+  <span class="chk ${on?'on':''}" style="color:#fff">${on?I('<polyline points="20 6 9 17 4 12"/>','width="11" height="11"'):''}</span>
+  <span class="md">${label}</span></div>`;}
 function ddField(key){const def=DROPDOWN_DEFS[key];const val=state.ui[key]||def.options[0];
  return `<div class="inp between tap" style="flex:1;min-width:0" data-act="openOptions" data-key="${key}"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${val}</span>${IC.chev}</div>`;}
 function newThreadHTML(){const req=`<span style="color:var(--danger)">*</span>`;
@@ -2264,7 +2454,7 @@ document.addEventListener('click',e=>{
   case 'toggletile': { const k=el.dataset.key; if(state.tileHidden.has(k))state.tileHidden.delete(k); else state.tileHidden.add(k); saveHidden(); renderGrid(); break; }
   case 'installapp': installApp(); break;
   case 'openChat': { const id=ensureThread(el.dataset.id); state.activeThread=id; if(THREADS[id].unread)THREADS[id].unread=false; go('chat'); break; }
-  case 'openPatient': { const id=el.dataset.id; ensureThread(id); state.activePatient=id; state.activeThread=id; state.chartSource=el.dataset.src||'list'; state.ui.pdTab=(state.chartSource==='message'?'overview':'overview'); state.ui.labtab='labs'; state.ui.pdApptTab='upcoming'; state.ui.vnTab='signed'; go('patientDetail'); break; }
+  case 'openPatient': { const id=el.dataset.id; ensureThread(id); state.activePatient=id; state.activeThread=id; state.chartSource=el.dataset.src||'list'; state.ui.pdTab=(state.chartSource==='message'?'overview':'overview'); state.ui.labtab='lab'; state.ui.pdApptTab='upcoming'; state.ui.vnTab='signed'; go('patientDetail'); break; }
   case 'patientChat': { const id=el.dataset.id; state.activePatient=id; go('patientThreads'); break; }
   case 'pmenu': { const id=el.dataset.id; const pid=state.activeThread; if(PATIENTS.find(p=>p.id===pid))state.activePatient=pid; if(id==='chat')go('patientThreads'); else if(id==='rx')go('escribe'); else if(id==='appts'){state.chartSource='message';state.ui.pdTab='appts';go('patientDetail');} else if(id==='chart'){state.chartSource='message';state.ui.pdTab='clinical';go('patientDetail');} else if(id==='labs'){state.chartSource='message';state.ui.pdTab='labs';go('patientDetail');} break; }
   case 'viewPdf': state.pdfName=el.dataset.name; go('pdfView'); break;
@@ -2283,7 +2473,33 @@ document.addEventListener('click',e=>{
   case 'addDx': { const c=document.getElementById('vnDx'); if(c){const codes=[['E11.9','Type 2 Diabetes'],['I10','Essential Hypertension'],['J06.9','Acute URI'],['M54.5','Low back pain']]; const pick=codes[c.querySelectorAll('.dxchip').length%codes.length]; const s=document.createElement('span'); s.className='badge b-gray dxchip'; s.innerHTML=pick[0]+' — '+pick[1]; c.insertBefore(s,c.querySelector('[data-act="addDx"]'));} toast('Diagnosis added'); break; }
   case 'addCpt': { const c=document.getElementById('vnCpt'); if(c){const codes=[['99214','Office visit, established, moderate'],['99396','Preventive visit, 40-64 yrs'],['90471','Immunization administration'],['80053','Comprehensive metabolic panel']]; const pick=codes[c.querySelectorAll('.cptchip').length%codes.length]; const s=document.createElement('span'); s.className='badge b-gray cptchip'; s.innerHTML=pick[0]+' — '+pick[1]; c.insertBefore(s,c.querySelector('[data-act="addCpt"]'));} toast('CPT code added'); break; }
   case 'addVisitNote': { const pid=state.activePatient; const n={id:'vn_new_'+Date.now(),patientId:pid,date:'Today',provider:'Dr. Jane Doe',location:state.location,apptType:'Office Visit',mode:'In-person',reason:'',subjective:'',objective:'',allergies:[['Penicillin','Severe'],['Sulfa Drugs','Moderate'],['Peanuts','Mild']],intol:[['Metformin','GI upset']],meds:['Pantocid','Metoprolol 50mg'],assessment:'',dx:[],plan:'',cpt:[],exam:null,vitals:{weight:'',height:'',temp:'',bp:'',hr:'',rr:'',spo2:'',bmi:'',pain:'',headCirc:''},status:'Unsigned',signedBy:'',signedDate:'',addenda:[]}; VISIT_NOTES.push(n); state.activeVisitNote=n; state.ui.vnAmendOpen=false; state.ui.vnAmendDraft=''; resetVnEditChips(); go('visitNoteEdit'); toast('New visit note started'); break; }
-  case 'addOrder': { const o=placeOrder(el.dataset.o); if(!o)break; render(); toast(o.type+' added — '+o.name); break; }
+  case 'addOrder': { const ty=el.dataset.o;
+    if(ty==='Lab Order'){go('addLabOrder');break;}
+    if(ty==='Imaging'){state.ui.rfType='Imaging';go('addReferral');break;}
+    if(ty==='Referral'){if(state.ui.rfType==='Imaging')state.ui.rfType=null;go('addReferral');break;}
+    const o=placeOrder(ty); if(o){render();toast(o.type+' added — '+o.name);} break; }
+  case 'togChk': { const k=el.dataset.key; state.ui[k]=!state.ui[k]; render(); break; }
+  case 'clearDate': { state.ui[el.dataset.key]=''; render(); break; }
+  case 'saveLabOrder': { readFormAreas(['loPtIns','loNote']);
+    const u=state.ui;
+    if(!u.loLab||!u.loTests||!u.loIcd){toast('Lab, Tests and ICD Codes are required');break;}
+    const o={id:'o'+(++ORDER_SEQ),group:'labs',type:'Lab Order',name:u.loTests,by:'Dr. Jane Doe',date:u.loDate||'Today',
+      priority:u.loPoc?'POC Hold':'Routine',notes:[u.loLab,u.loNote].filter(Boolean).join(' • '),
+      status:'Resulted',cls:'b-green',report:u.loTests,fromNote:true};
+    ORDERS.push(o); ['loLocation','loLab','loTests','loIcd','loPtIns','loNote','loPoc'].forEach(k=>state.ui[k]=null);
+    state.activeOrder=o; state.screen='orderDetail'; render();
+    toast(el.dataset.mode||('Lab order saved — '+o.name)); break; }
+  case 'saveReferral': { readFormAreas(['rfReason']);
+    const u=state.ui;
+    if(!u.rfType||!(u.rfReason||'').trim()||!u.rfDx){toast('Referral Type, Reason and Diagnosis Codes are required');break;}
+    const img=u.rfType==='Imaging';
+    const nm=u.rfCenter?u.rfType+' — '+u.rfCenter:u.rfType+' Referral';
+    const o={id:'o'+(++ORDER_SEQ),group:img?'imaging':null,type:img?'Imaging':'Referral',name:nm,by:u.rfProvider||'Alexander Whitmore',
+      date:u.rfDate||'Today',priority:u.rfStat?'STAT':'Routine',notes:u.rfReason,
+      status:'Resulted',cls:'b-green',report:nm,fromNote:true};
+    ORDERS.push(o); ['rfType','rfCenter','rfReason','rfDx','rfStat'].forEach(k=>state.ui[k]=null);
+    state.activeOrder=o; state.screen='orderDetail'; render();
+    toast(el.dataset.mode||(o.type+' saved — '+nm)); break; }
   case 'openOrder': { const o=ORDERS.find(v=>v.id===el.dataset.id); if(o){state.activeOrder=o;go('orderDetail');} break; }
   case 'focusSearch': { const i=document.getElementById('patSearch'); if(i)i.focus(); break; }
   case 'patsort': { const o=['name','recent','status']; state.ui.patSort=o[(o.indexOf(state.ui.patSort||'name')+1)%o.length]; render(); toast('Sorted by '+state.ui.patSort); break; }
